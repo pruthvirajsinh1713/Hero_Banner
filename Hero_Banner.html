@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hyperspace Hero</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #080808;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    body {
+      position: relative;
+    }
+
+    #warp-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      display: block;
+      background: #080808;
+    }
+
+    .vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.75) 100%);
+    }
+
+    .hero-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      pointer-events: none;
+      padding: 16px;
+    }
+
+    .text-glow {
+      position: absolute;
+      width: min(600px, 85vw);
+      height: min(300px, 45vw);
+      z-index: 9;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 70%);
+      filter: blur(40px);
+      pointer-events: none;
+    }
+
+    .text-block {
+      position: relative;
+      z-index: 10;
+    }
+
+    .name-line {
+      margin: 0;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: clamp(2.2rem, 5.8vw, 4rem);
+      letter-spacing: 2px;
+      line-height: 1.1;
+      min-height: 1.2em;
+      text-shadow: 0 0 24px rgba(255, 255, 255, 0.1);
+      transition: text-shadow 0.12s ease;
+    }
+
+    .name-line::after {
+      content: "";
+      display: inline-block;
+      width: 0.09em;
+      height: 1em;
+      margin-left: 0.08em;
+      background: #ffffff;
+      vertical-align: -0.08em;
+      animation: blink-cursor 0.8s step-end infinite;
+    }
+
+    .name-line.typing-done::after {
+      display: none;
+    }
+
+    .name-line.glitch {
+      text-shadow:
+        -2px 0 0 rgba(255, 70, 70, 0.5),
+        2px 0 0 rgba(120, 170, 255, 0.6),
+        0 0 22px rgba(255, 255, 255, 0.22);
+    }
+
+    .subtitle {
+      margin: 14px auto 0;
+      color: #999999;
+      font-size: clamp(0.92rem, 1.65vw, 1.1rem);
+      font-weight: 300;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+      position: relative;
+      width: fit-content;
+      max-width: calc(100vw - 40px);
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .subtitle.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .subtitle::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -140%;
+      width: 70%;
+      height: 100%;
+      background: linear-gradient(110deg, rgba(255, 255, 255, 0) 0%, rgba(248, 251, 255, 0.9) 48%, rgba(255, 255, 255, 0) 100%);
+      mix-blend-mode: screen;
+      opacity: 0;
+      transform: skewX(-20deg);
+      animation: subtitle-shimmer 4s ease-in-out infinite;
+    }
+
+    @keyframes blink-cursor {
+      0%, 45% {
+        opacity: 1;
+      }
+      46%, 100% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes subtitle-shimmer {
+      0%, 74% {
+        left: -140%;
+        opacity: 0;
+      }
+      76% {
+        opacity: 0.8;
+      }
+      92% {
+        left: 140%;
+        opacity: 0.55;
+      }
+      100% {
+        left: 140%;
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="warp-canvas" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <section class="hero-content" aria-label="Hero section">
+    <div class="text-glow" aria-hidden="true"></div>
+    <div class="text-block">
+      <h1 id="name-line" class="name-line"></h1>
+      <p id="subtitle" class="subtitle">Learner</p>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById("warp-canvas");
+      const ctx = canvas.getContext("2d");
+      const nameEl = document.getElementById("name-line");
+      const subtitleEl = document.getElementById("subtitle");
+
+      const fullName = "Pruthvirajsinh Bariya";
+
+      const STREAK_COUNT = 220;
+      const DEAD_ZONE_RADIUS = 80;
+      const SPAWN_BAND = 56;
+      const MIN_LENGTH = 15;
+      const MAX_LENGTH = 120;
+      const MIN_THICKNESS = 0.5;
+      const MAX_THICKNESS = 1.5;
+      const PING_INTERVAL = 4;
+      const PING_DURATION = 1.45;
+      const PING_MAX_RADIUS = 300;
+      const WARP_INTERVAL = 5;
+      const WARP_DURATION = 0.6;
+      const MAX_PARALLAX_OFFSET = 30;
+
+      let width = 0;
+      let height = 0;
+      let centerX = 0;
+      let centerY = 0;
+      let maxRadius = 0;
+      let dpr = 1;
+      let previousTime = 0;
+      let elapsedSeconds = 0;
+      let streaks = [];
+      let pings = [];
+      let nextPingTime = PING_INTERVAL;
+
+      let targetParallaxX = 0;
+      let targetParallaxY = 0;
+      let parallaxX = 0;
+      let parallaxY = 0;
+
+      function random(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      function easeInOutSine(t) {
+        return -(Math.cos(Math.PI * t) - 1) * 0.5;
+      }
+
+      function getSpeedPulseMultiplier(timeInSeconds) {
+        const cyclePos = timeInSeconds % WARP_INTERVAL;
+        if (cyclePos > WARP_DURATION) {
+          return 1;
+        }
+
+        const phase = cyclePos / WARP_DURATION;
+        const triangle = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+        return 1 + easeInOutSine(Math.max(0, Math.min(1, triangle)));
+      }
+
+      function pickStreakColor(alpha) {
+        const roll = Math.random();
+        if (roll < 0.08) {
+          return `rgba(255, 232, 160, ${alpha})`;
+        }
+        if (roll < 0.5) {
+          return `rgba(200, 216, 255, ${alpha})`;
+        }
+        return `rgba(255, 255, 255, ${alpha})`;
+      }
+
+      function createStreak(randomAge) {
+        const angle = random(0, Math.PI * 2);
+        const speed = random(180, 1100);
+        const length = random(MIN_LENGTH, MAX_LENGTH);
+        const thickness = random(MIN_THICKNESS, MAX_THICKNESS);
+        const opacity = random(0.45, 1);
+        const spawnDistance = DEAD_ZONE_RADIUS + random(2, SPAWN_BAND);
+
+        return {
+          angle,
+          speed,
+          length,
+          thickness,
+          opacity,
+          distance: spawnDistance,
+          age: randomAge ? random(0, 2) : 0
+        };
+      }
+
+      function resetStreak(streak, randomAge) {
+        const fresh = createStreak(randomAge);
+        streak.angle = fresh.angle;
+        streak.speed = fresh.speed;
+        streak.length = fresh.length;
+        streak.thickness = fresh.thickness;
+        streak.opacity = fresh.opacity;
+        streak.distance = fresh.distance;
+        streak.age = fresh.age;
+      }
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        centerX = width * 0.5;
+        centerY = height * 0.5;
+        maxRadius = Math.hypot(width, height) * 0.55;
+        dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function init() {
+        streaks = new Array(STREAK_COUNT);
+        for (let i = 0; i < STREAK_COUNT; i += 1) {
+          streaks[i] = createStreak(true);
+        }
+      }
+
+      function createPing() {
+        return {
+          age: 0
+        };
+      }
+
+      function startTypewriter() {
+        let idx = 0;
+        const typeSpeed = 90;
+
+        function typeNext() {
+          if (idx <= fullName.length) {
+            nameEl.textContent = fullName.slice(0, idx);
+            idx += 1;
+            setTimeout(typeNext, typeSpeed);
+            return;
+          }
+
+          nameEl.classList.add("typing-done");
+          subtitleEl.classList.add("visible");
+
+          setInterval(() => {
+            nameEl.classList.add("glitch");
+            setTimeout(() => {
+              nameEl.classList.remove("glitch");
+            }, 200);
+          }, 4000);
+        }
+
+        typeNext();
+      }
+
+      function bindParallax() {
+        window.addEventListener("mousemove", (event) => {
+          const nx = (event.clientX / width - 0.5) * 2;
+          const ny = (event.clientY / height - 0.5) * 2;
+          targetParallaxX = nx * MAX_PARALLAX_OFFSET;
+          targetParallaxY = ny * MAX_PARALLAX_OFFSET;
+        });
+      }
+
+      function draw(time) {
+        if (!previousTime) previousTime = time;
+        const dt = Math.min((time - previousTime) / 1000, 0.033);
+        previousTime = time;
+        elapsedSeconds += dt;
+
+        parallaxX += (targetParallaxX - parallaxX) * Math.min(1, dt * 7);
+        parallaxY += (targetParallaxY - parallaxY) * Math.min(1, dt * 7);
+
+        const originX = centerX + parallaxX;
+        const originY = centerY + parallaxY;
+
+        while (elapsedSeconds >= nextPingTime) {
+          pings.push(createPing());
+          nextPingTime += PING_INTERVAL;
+        }
+
+        const pulseMultiplier = getSpeedPulseMultiplier(elapsedSeconds);
+
+        ctx.fillStyle = "#080808";
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.lineCap = "round";
+        ctx.shadowColor = "rgba(255, 255, 255, 0.85)";
+        ctx.shadowBlur = 6;
+
+        for (let i = 0; i < streaks.length; i += 1) {
+          const streak = streaks[i];
+          streak.age += dt;
+          streak.distance += streak.speed * pulseMultiplier * dt;
+
+          const progress = (streak.distance - DEAD_ZONE_RADIUS) / (maxRadius - DEAD_ZONE_RADIUS);
+          if (progress >= 1.05) {
+            resetStreak(streak, false);
+            continue;
+          }
+
+          const ux = Math.cos(streak.angle);
+          const uy = Math.sin(streak.angle);
+
+          const dynamicLength = streak.length * Math.min(1, Math.max(0.08, progress * 1.25));
+
+          const tipX = originX + ux * streak.distance;
+          const tipY = originY + uy * streak.distance;
+          const tailDistance = Math.max(0, streak.distance - dynamicLength);
+          const tailX = originX + ux * tailDistance;
+          const tailY = originY + uy * tailDistance;
+
+          const fadeIn = Math.min(1, Math.max(0, progress) * 5.5);
+          const fadeOut = 1 - Math.max(0, (progress - 0.72) / 0.28);
+          const alpha = streak.opacity * fadeIn * fadeOut;
+          if (alpha <= 0.01) continue;
+
+          ctx.strokeStyle = pickStreakColor(alpha);
+          ctx.lineWidth = streak.thickness;
+          ctx.beginPath();
+          ctx.moveTo(tailX, tailY);
+          ctx.lineTo(tipX, tipY);
+          ctx.stroke();
+        }
+
+        ctx.shadowBlur = 0;
+        for (let i = pings.length - 1; i >= 0; i -= 1) {
+          const ping = pings[i];
+          ping.age += dt;
+          const progress = ping.age / PING_DURATION;
+
+          if (progress >= 1) {
+            pings.splice(i, 1);
+            continue;
+          }
+
+          const radius = 5 + (PING_MAX_RADIUS - 5) * easeInOutSine(progress);
+          const alpha = 0.4 * (1 - progress);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.375})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(originX, originY, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      resize();
+      init();
+      startTypewriter();
+      bindParallax();
+      requestAnimationFrame(draw);
+      window.addEventListener("resize", resize);
+    })();
+  </script>
+</body>
+</html>
