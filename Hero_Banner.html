@@ -150,30 +150,15 @@
     }
 
     @keyframes blink-cursor {
-      0%, 45% {
-        opacity: 1;
-      }
-      46%, 100% {
-        opacity: 0;
-      }
+      0%, 45% { opacity: 1; }
+      46%, 100% { opacity: 0; }
     }
 
     @keyframes subtitle-shimmer {
-      0%, 74% {
-        left: -140%;
-        opacity: 0;
-      }
-      76% {
-        opacity: 0.8;
-      }
-      92% {
-        left: 140%;
-        opacity: 0.55;
-      }
-      100% {
-        left: 140%;
-        opacity: 0;
-      }
+      0%, 74% { left: -140%; opacity: 0; }
+      76% { opacity: 0.8; }
+      92% { left: 140%; opacity: 0.55; }
+      100% { left: 140%; opacity: 0; }
     }
   </style>
 </head>
@@ -239,24 +224,17 @@
 
       function getSpeedPulseMultiplier(timeInSeconds) {
         const cyclePos = timeInSeconds % WARP_INTERVAL;
-        if (cyclePos > WARP_DURATION) {
-          return 1;
-        }
-
+        if (cyclePos > WARP_DURATION) return 1;
         const phase = cyclePos / WARP_DURATION;
         const triangle = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
         return 1 + easeInOutSine(Math.max(0, Math.min(1, triangle)));
       }
-
-      function pickStreakColor(alpha) {
+      
+      function pickStreakColorValue() {
         const roll = Math.random();
-        if (roll < 0.08) {
-          return `rgba(255, 232, 160, ${alpha})`;
-        }
-        if (roll < 0.5) {
-          return `rgba(200, 216, 255, ${alpha})`;
-        }
-        return `rgba(255, 255, 255, ${alpha})`;
+        if (roll < 0.08) return { r: 255, g: 232, b: 160 };
+        if (roll < 0.5)  return { r: 200, g: 216, b: 255 };
+        return { r: 255, g: 255, b: 255 };
       }
 
       function createStreak(randomAge) {
@@ -266,6 +244,7 @@
         const thickness = random(MIN_THICKNESS, MAX_THICKNESS);
         const opacity = random(0.45, 1);
         const spawnDistance = DEAD_ZONE_RADIUS + random(2, SPAWN_BAND);
+        const color = pickStreakColorValue(); // assigned once, stable per streak
 
         return {
           angle,
@@ -273,6 +252,7 @@
           length,
           thickness,
           opacity,
+          color,
           distance: spawnDistance,
           age: randomAge ? random(0, 2) : 0
         };
@@ -280,25 +260,28 @@
 
       function resetStreak(streak, randomAge) {
         const fresh = createStreak(randomAge);
-        streak.angle = fresh.angle;
-        streak.speed = fresh.speed;
-        streak.length = fresh.length;
+        streak.angle    = fresh.angle;
+        streak.speed    = fresh.speed;
+        streak.length   = fresh.length;
         streak.thickness = fresh.thickness;
-        streak.opacity = fresh.opacity;
+        streak.opacity  = fresh.opacity;
+        streak.color    = fresh.color;
         streak.distance = fresh.distance;
-        streak.age = fresh.age;
+        streak.age      = fresh.age;
       }
 
       function resize() {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        centerX = width * 0.5;
+        width   = window.innerWidth;
+        height  = window.innerHeight;
+        centerX = width  * 0.5;
         centerY = height * 0.5;
         maxRadius = Math.hypot(width, height) * 0.55;
         dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
 
-        canvas.width = Math.floor(width * dpr);
+        canvas.width  = Math.floor(width  * dpr);
         canvas.height = Math.floor(height * dpr);
+
+        ctx.resetTransform();
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
 
@@ -310,9 +293,7 @@
       }
 
       function createPing() {
-        return {
-          age: 0
-        };
+        return { age: 0 };
       }
 
       function startTypewriter() {
@@ -332,9 +313,7 @@
 
           setInterval(() => {
             nameEl.classList.add("glitch");
-            setTimeout(() => {
-              nameEl.classList.remove("glitch");
-            }, 200);
+            setTimeout(() => nameEl.classList.remove("glitch"), 200);
           }, 4000);
         }
 
@@ -343,7 +322,7 @@
 
       function bindParallax() {
         window.addEventListener("mousemove", (event) => {
-          const nx = (event.clientX / width - 0.5) * 2;
+          const nx = (event.clientX / width  - 0.5) * 2;
           const ny = (event.clientY / height - 0.5) * 2;
           targetParallaxX = nx * MAX_PARALLAX_OFFSET;
           targetParallaxY = ny * MAX_PARALLAX_OFFSET;
@@ -372,13 +351,13 @@
         ctx.fillStyle = "#080808";
         ctx.fillRect(0, 0, width, height);
 
-        ctx.lineCap = "round";
+        ctx.lineCap     = "round";
         ctx.shadowColor = "rgba(255, 255, 255, 0.85)";
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur  = 6;
 
         for (let i = 0; i < streaks.length; i += 1) {
           const streak = streaks[i];
-          streak.age += dt;
+          streak.age      += dt;
           streak.distance += streak.speed * pulseMultiplier * dt;
 
           const progress = (streak.distance - DEAD_ZONE_RADIUS) / (maxRadius - DEAD_ZONE_RADIUS);
@@ -392,29 +371,33 @@
 
           const dynamicLength = streak.length * Math.min(1, Math.max(0.08, progress * 1.25));
 
-          const tipX = originX + ux * streak.distance;
-          const tipY = originY + uy * streak.distance;
+          const tipX  = originX + ux * streak.distance;
+          const tipY  = originY + uy * streak.distance;
           const tailDistance = Math.max(0, streak.distance - dynamicLength);
           const tailX = originX + ux * tailDistance;
           const tailY = originY + uy * tailDistance;
 
-          const fadeIn = Math.min(1, Math.max(0, progress) * 5.5);
+          const fadeIn  = Math.min(1, Math.max(0, progress) * 5.5);
           const fadeOut = 1 - Math.max(0, (progress - 0.72) / 0.28);
-          const alpha = streak.opacity * fadeIn * fadeOut;
+          const alpha   = streak.opacity * fadeIn * fadeOut;
           if (alpha <= 0.01) continue;
 
-          ctx.strokeStyle = pickStreakColor(alpha);
-          ctx.lineWidth = streak.thickness;
+          // Use the streak's own stable color (FIX 1)
+          const { r, g, b } = streak.color;
+          ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+          ctx.lineWidth   = streak.thickness;
           ctx.beginPath();
           ctx.moveTo(tailX, tailY);
-          ctx.lineTo(tipX, tipY);
+          ctx.lineTo(tipX,  tipY);
           ctx.stroke();
         }
 
+        // FIX 4: Explicitly zero out shadowBlur so ping rings are clean.
         ctx.shadowBlur = 0;
+
         for (let i = pings.length - 1; i >= 0; i -= 1) {
-          const ping = pings[i];
-          ping.age += dt;
+          const ping     = pings[i];
+          ping.age      += dt;
           const progress = ping.age / PING_DURATION;
 
           if (progress >= 1) {
@@ -423,9 +406,9 @@
           }
 
           const radius = 5 + (PING_MAX_RADIUS - 5) * easeInOutSine(progress);
-          const alpha = 0.4 * (1 - progress);
+          const alpha  = 0.4 * (1 - progress);
           ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.375})`;
-          ctx.lineWidth = 1;
+          ctx.lineWidth   = 1;
           ctx.beginPath();
           ctx.arc(originX, originY, radius, 0, Math.PI * 2);
           ctx.stroke();
