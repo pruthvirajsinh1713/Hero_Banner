@@ -1,11 +1,20 @@
-# 🚀 Hyperspace Hero Banner
+# Hyperspace Hero
 
-A modern hero banner with animated warp-speed effects and interactive visuals built using HTML, CSS, and JavaScript.
+A stunning interactive hero section with immersive hyperspace warp effects, typewriter text animation, and mouse parallax tracking.
 
-## Usage
+# Features
 
-Open `Hero_Banner.html` in your browser and customize the name and subtitle as needed.
+✨ Warp Effect — Animated star streaks radiating from center with dynamic length and fade<br>
+⌨️ Typewriter Animation — Character-by-character reveal with blinking cursor<br>
+🎯 Parallax Tracking — Text responds smoothly to mouse movement<br>
+📡 Ping Ripples — Periodic wave pulses emanating from the center<br>
+🔧 Speed Pulse — Breathing warp acceleration cycle every 5 seconds<br>
+📱 Responsive — Scales beautifully to any viewport size<br>
+🎨 Glitch Effect — Periodic RGB color shift on the hero name<br>
 
-## Author
+# Quick Start
 
-Pruthvirajsinh Bariya
+
+1. Download hero_Banner.html<br>
+2. Open in any modern browser<br>
+3. Customize the name and subtitle in the HTML<br>
